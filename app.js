@@ -293,24 +293,33 @@ function openPopover(anchor, html){
 
 /* ---------- НАВИГАЦИЯ ---------- */
 var NAV_ITEMS=[
-  {id:'dashboard', label:'Дашборд'},
-  {id:'list',      label:'Список заявок'},
-  {id:'map',       label:'Карта направлений'},
-  {id:'present',   label:'Презентации'},
-  {id:'import',    label:'Импорт / экспорт'},
-  {id:'refs',      label:'Справочники'}
+  {id:'dashboard', label:'Дашборд',          ico:'▤'},
+  {id:'list',      label:'Список заявок',    ico:'☰'},
+  {id:'map',       label:'Карта направлений',ico:'⬡'},
+  {id:'present',   label:'Презентации',      ico:'◷'},
+  {id:'import',    label:'Импорт / экспорт', ico:'⇅'},
+  {id:'refs',      label:'Справочники',      ico:'☰'}
 ];
 function buildNav(){
-  document.getElementById('topnav').innerHTML=NAV_ITEMS.map(function(n){
-    return '<button data-act="nav" data-screen="'+n.id+'">'+n.label+'</button>';
+  var nav=document.getElementById('sidenav')||document.getElementById('topnav');
+  if(!nav) return;
+  nav.innerHTML=NAV_ITEMS.map(function(n){
+    return '<button data-act="nav" data-screen="'+n.id+'"><span class="ico">'+n.ico+'</span><span class="lbl">'+n.label+'</span></button>';
   }).join('');
+}
+function crumbsText(id){
+  var n=NAV_ITEMS.find(function(x){return x.id===id;});
+  return n? n.label : '';
 }
 function go(screen, arg){
   App.screen=screen; App.arg=arg||null;
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var el=document.getElementById('screen-'+screen);
   if(el) el.classList.add('active');
-  document.querySelectorAll('#topnav button').forEach(function(b){ b.classList.toggle('active', b.dataset.screen===screen); });
+  var navRoot=document.getElementById('sidenav')||document.getElementById('topnav');
+  if(navRoot) navRoot.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b.dataset.screen===screen); });
+  var cr=document.getElementById('crumbs');
+  if(cr) cr.textContent=(screen==='card'?'Список заявок · Карточка проекта':crumbsText(screen));
   closePopover();
   if(screen==='dashboard') renderDashboard();
   else if(screen==='list') renderList(arg);
@@ -379,8 +388,13 @@ function renderDashboard(){
   });
 
   el.innerHTML=
-    '<h1>Дашборд</h1>'+
-    '<div class="sub">2-я волна Программы трансляционных исследований · '+(demo?'содержит ДЕМО-данные · ':'')+'подача до <b>'+fmtDate(CONFIG.app.deadlineSubmit)+'</b></div>'+
+    '<div class="page-head"><div><h1>Дашборд</h1>'+
+    '<div class="sub">2-я волна Программы трансляционных исследований · '+(demo?'содержит ДЕМО-данные · ':'')+'подача до <b>'+fmtDate(CONFIG.app.deadlineSubmit)+'</b></div></div>'+
+    '<div class="no-print" style="display:flex;gap:8px">'+
+      '<button class="btn" data-act="nav" data-screen="list">☰ Список заявок</button>'+
+      '<button class="btn" data-act="export-xlsx" data-scope="all">Экспорт XLSX</button>'+
+      '<button class="btn primary" data-act="nav" data-screen="import">⇅ Импорт CSV</button>'+
+    '</div></div>'+
     '<div class="grid g-stats">'+
       statCard(ps.filter(function(p){return deriveStatus(p)==='reg';}).length,'Регистраций')+
       statCard(ps.filter(function(p){return deriveStatus(p)==='applied';}).length,'Поданных заявок')+
@@ -410,7 +424,7 @@ function renderDashboard(){
         (Object.keys(trlCount).length? Object.keys(trlCount).sort().map(function(t){ return '<div class="bar-row" style="cursor:default"><span class="bar-lab" style="color:'+trlColor(Number(t))+'">TRL '+t+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(ps.length?Math.round(trlCount[t]/ps.length*100):0)+'%;background:'+trlColor(Number(t))+'"></div></div><span class="bar-val">'+trlCount[t]+'</span></div>'; }).join('') : '<div class="empty">Нет данных</div>')+
       '</div>'+
       '<div class="card full"><h3>Динамика подачи заявок (по дате создания)</h3>'+
-        (dayArr.length? '<div style="display:flex;align-items:flex-end;gap:4px;height:120px">'+dayArr.map(function(d){ return '<div style="flex:1;text-align:center"><div style="background:var(--primary);margin:0 auto;width:60%;border-radius:3px 3px 0 0;height:'+Math.max(4,Math.round(dayCount[d]/maxDay*110))+'px" title="'+fmtDate(d)+': '+dayCount[d]+'"></div><div style="font-size:10px;color:var(--muted);margin-top:3px">'+d.slice(8)+'.'+d.slice(5,7)+'</div></div>'; }).join('')+'</div>' : '<div class="empty">Нет данных — добавьте столбец «Дата создания» в выгрузку Битрикс</div>')+
+        (dayArr.length? '<div class="chart-days">'+dayArr.map(function(d){ return '<div class="col"><div class="b" style="height:'+Math.max(3,Math.round(dayCount[d]/maxDay*100))+'%" title="'+fmtDate(d)+': '+dayCount[d]+'"></div><div class="x">'+d.slice(8)+'.'+d.slice(5,7)+'</div></div>'; }).join('')+'</div>' : '<div class="empty">Нет данных — добавьте столбец «Дата создания» в выгрузку Битрикс</div>')+
       '</div>'+
     '</div>';
 }
@@ -501,9 +515,11 @@ function renderList(arg){
     return '<button class="pill '+(f[key]?'on':'')+'" data-act="filter-toggle" data-key="'+key+'">'+label+'</button>';
   }
   screenEl('list').innerHTML=
-    '<h1>Список заявок</h1>'+
-    '<div class="sub" id="listCount"></div>'+
-    '<div class="searchbox" style="margin-top:12px">'+
+    '<div class="page-head"><div><h1>Список заявок</h1><div class="sub" id="listCount"></div></div>'+
+    '<div class="no-print" style="display:flex;gap:8px">'+
+      '<button class="btn sm" data-act="export-xlsx" data-scope="filter">Экспорт XLSX (фильтр)</button>'+
+    '</div></div>'+
+    '<div class="searchbox">'+
       '<input id="lSearch" placeholder="Поиск по названию, аннотации, руководителю, организации…  (клавиша «/»)" value="'+esc(App.ui.search)+'">'+
       '<button class="btn" data-act="filter-reset">Сбросить фильтры</button>'+
     '</div>'+
@@ -515,7 +531,6 @@ function renderList(arg){
       '<span class="muted">Колонки:</span>'+
       LIST_COLS.map(function(c){ return '<label><input type="checkbox" data-col="'+c.key+'" '+(visible.indexOf(c.key)>=0?'checked':'')+'> '+c.label+'</label>'; }).join('')+
       '<button class="btn sm primary" data-act="bulk-open" id="bulkBtn">Изменить статус</button>'+
-      '<button class="btn sm" data-act="export-xlsx" data-scope="filter">Экспорт XLSX (фильтр)</button>'+
     '</div>'+
     '<div class="tbl-wrap"><table class="tbl"><thead><tr>'+
       '<th style="width:26px"><input type="checkbox" data-selall id="selAllBox"></th>'+
@@ -637,12 +652,12 @@ function renderCardBody(){
   var tabs=CARD_TABS.filter(function(t){return t.zone===App.card.zone;});
   var anketNotFilled=(deriveStatus(p)==='reg');
   screenEl('card').innerHTML=
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-      '<button class="btn sm" data-act="nav" data-screen="list">← Список заявок</button>'+
-      (App.card.zone==='appl'? '<button class="btn sm" data-act="card-zone" data-zone="form">Анкета проекта →</button>':'')+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" class="no-print">'+
+      '<button class="btn sm ghost" data-act="nav" data-screen="list">← Список заявок</button>'+
+      (App.card.zone==='appl'? '<button class="btn sm primary" data-act="card-zone" data-zone="form">Анкета проекта →</button>':'')+
     '</div>'+
     '<div class="card-head" style="margin-top:10px"><div>'+
-      '<div class="muted" style="font-size:12px">Заявка ID <b>'+esc(p.id||'—')+'</b>'+(p.demo?' <span class="hz-tag">ДЕМО</span>':'')+'</div>'+
+      '<div class="muted" style="font-size:12px;letter-spacing:.2px">Заявка ID <b>'+esc(p.id||'—')+'</b>'+(p.demo?' <span class="hz-tag">ДЕМО</span>':'')+'</div>'+
       '<h1 class="card-title">'+esc(nameOf(p))+'</h1>'+
       '<div class="org-big">'+esc(p.org&&p.org.v||'Организация не указана')+orgChip(p.org&&p.org.v)+'</div>'+
       '<div style="margin-top:8px" id="cardChips">'+chipsHtml(p)+'</div>'+
@@ -993,7 +1008,7 @@ function renderPresent(){
     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
       '<div><h1>Презентации</h1><div class="sub">Окно: '+fmtDate(CONFIG.app.presentationsWindow[0])+' – '+fmtDate(CONFIG.app.presentationsWindow[1])+' · дискретные слоты, до 1 проекта на день</div></div>'+
       '<div class="no-print" style="display:flex;gap:8px"><button class="btn" data-act="export-present">Выгрузка расписания (XLSX)</button>'+
-      '<button class="btn success" data-act="auto-slot">Автораспределение свободных</button></div>'+
+      '<button class="btn primary" data-act="auto-slot">Автораспределение свободных</button></div>'+
     '</div>'+
     '<div class="alert info" style="margin-top:12px"><p class="a-t">Назначение слотов</p><div class="a-b">В выпадающем списке — проекты со статусом «Приглашена на презентацию» без слота. Назначение переносит проект из прежнего слота автоматически.</div></div>'+
     '<div class="slot-grid" style="margin-top:14px">'+
