@@ -489,7 +489,7 @@ function applyFilters(ps){
       if(hay.indexOf(s)<0) return false;
     }
     if(f.dir){ var d=(p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'(не указано)'; if(d!==f.dir) return false; }
-    if(f.corp){ if(deriveCorp(p)!==f.corp) return false; }
+    if(f.corp){ if(deriveCorps(p).indexOf(f.corp)<0) return false; }
     if(f.status){ if(statusOf(p)!==f.status) return false; }
     if(f.relevance){ if(!(p.relevance&&p.relevance.v===f.relevance)) return false; }
     if(f.manual){ if(!needsManual(p)) return false; }
