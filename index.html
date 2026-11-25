@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт заявок 2-й волны — Программа трансляционных исследований ЦУ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="topbar">
+  <div class="logo" data-act="nav" data-screen="dashboard" style="cursor:pointer">
+    <div class="logo-mark">ЦУ</div>
+    <div>
+      <div class="logo-title">Программа трансляционных исследований</div>
+      <div class="logo-sub">Учёт заявок · 2-я волна · Центральный университет</div>
+    </div>
+  </div>
+  <nav id="topnav"></nav>
+  <div id="topbar-right">
+    <span id="demoBadge" class="badge flag-demo" style="display:none">ДЕМО-данные</span>
+    <button class="btn sm" id="projBtn" title="Режим проектора (крупный шрифт)">🖥 Проектор</button>
+  </div>
+</div>
+<div id="app">
+  <div id="screen-dashboard" class="screen"></div>
+  <div id="screen-list" class="screen"></div>
+  <div id="screen-card" class="screen"></div>
+  <div id="screen-map" class="screen"></div>
+  <div id="screen-present" class="screen"></div>
+  <div id="screen-import" class="screen"></div>
+  <div id="screen-refs" class="screen"></div>
+</div>
+<footer>Программа трансляционных исследований ЦУ · локальная система учёта · данные не покидают браузер</footer>
+<div id="modalRoot" class="modal-bg"><div class="modal" id="modalBox"></div></div>
+<div id="toast" class="toast"></div>
+
+<!-- Порядок подключения важен: библиотека → конфигурация → приложение -->
+<script src="lib/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
