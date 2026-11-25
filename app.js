@@ -179,7 +179,7 @@ function checkRules(p){
   if(t!=null && t>R.termMonthsMax) w.push({type:'term', title:'Срок превышает '+R.termMonthsMax+' мес.', body:'Срок '+t+' мес. › '+R.termMonthsMax+' мес.', level:'warn'});
   if(b>0 && f!=null && f/b>R.fotShareMax) w.push({type:'fot', title:'ФОТ превышает 60 % бюджета', body:'ФОТ '+fmtMoney(f)+' = '+fmtNum((f/b*100).toFixed(1))+' % бюджета › 60 %. Допустимый max ФОТ '+fmtMoney(Math.floor(b*R.fotShareMax))+'.', level:'warn'});
   if(f>0 && o!=null && o/f>R.overheadFotShareMax) w.push({type:'overhead', title:'Накладные превышают 10 % от ФОТ', body:'Накладные '+fmtMoney(o)+' = '+fmtNum((o/f*100).toFixed(1))+' % от ФОТ '+fmtMoney(f)+' › 10 %. Допустимый max '+fmtMoney(Math.floor(f*R.overheadFotShareMax))+'.', level:'warn'});
-  if(tt!=null && (tt<R.trlTargetMin || tt>R.trlTargetMax)) w.push({type:'trl', title:'TRL вне диапазона 2–3', body:'Целевой TRL = '+tt+' (ожидается '+R.trlTargetMin+'–'+R.trlTargetMax+').', level:'warn'});
+  if(tt!=null && (tt<R.trlTargetMin || tt>R.trlTargetMax)) w.push({type:'trl', title:'TRL вне диапазона 2–3', body:'TRL = '+tt+' (ожидается '+R.trlTargetMin+'–'+R.trlTargetMax+').', level:'warn'});
   if(p.nextDue&&p.nextDue.v && !(statusOf(p)==='ok'||statusOf(p)==='no'||statusOf(p)==='withdrawn')){
     var dd=daysUntil(p.nextDue.v);
     if(dd!=null && dd<0) w.push({type:'overdue', title:'Следующий шаг просрочен', body:'Срок шага '+fmtDate(p.nextDue.v)+' ('+Math.abs(dd)+' дн. назад).', level:'danger'});
@@ -201,6 +201,20 @@ function manualReason(p){
   var n=CONFIG.needsManualHint.find(function(h){return hay.indexOf(h)>=0;});
   if(n) return 'Направление по карте неочевидно («'+(p.formDir&&p.formDir.v||'')+'»)';
   return 'Нет соответствия в таблице соответствий';
+}
+/* Корпорация выводится из Карты направлений по направлению анкеты (Битрикс).
+   Совпадение по справочнику directionMap; если не нашлось —
+   берём вручную заполненное поле corp; иначе пусто. */
+function deriveCorp(p){
+  var fd=slug(p.formDir&&p.formDir.v);
+  if(fd){
+    var hit=CONFIG.directionMap.find(function(m){ return slug(m.dir)===fd; });
+    if(hit){
+      var names=hit.corp.split(',').map(function(x){return x.trim();});
+      return names.length===1? names[0] : hit.corp;
+    }
+  }
+  return (p.corp&&p.corp.v)||'';
 }
 function proposeWave1(proj, wave1projects){
   var out=[], em=slug(proj.leaderEmail&&proj.leaderEmail.v), nm=slug(proj.name&&proj.name.v);
@@ -1652,7 +1666,7 @@ function renderRefs(){
         '<tr><td>Срок ≤</td><td>'+CONFIG.rules.termMonthsMax+' мес.</td></tr>'+
         '<tr><td>ФОТ (доля бюджета)</td><td>≤ '+Math.round(CONFIG.rules.fotShareMax*100)+' %</td></tr>'+
         '<tr><td>Накладные (от ФОТ)</td><td>≤ '+Math.round(CONFIG.rules.overheadFotShareMax*100)+' %</td></tr>'+
-        '<tr><td>Целевой TRL</td><td>'+CONFIG.rules.trlTargetMin+'–'+CONFIG.rules.trlTargetMax+'</td></tr>'+
+        '<tr><td>TRL (целевой)</td><td>'+CONFIG.rules.trlTargetMin+'–'+CONFIG.rules.trlTargetMax+'</td></tr>'+
         '<tr><td>Подача до</td><td>'+fmtDate(CONFIG.app.deadlineSubmit)+'</td></tr>'+
         '<tr><td>Презентации</td><td>'+fmtDate(CONFIG.app.presentationsWindow[0])+'–'+fmtDate(CONFIG.app.presentationsWindow[1])+'</td></tr>'+
       '</table></div>'+
