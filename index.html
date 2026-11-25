@@ -3,34 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Учёт заявок 2-й волны — Программа трансляционных исследований ЦУ</title>
+<title>Заявки · 2-я волна — Трансляционные исследования ЦУ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%232563EB'/><text x='50' y='68' font-size='52' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'>Т</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="topbar">
-  <div class="logo" data-act="nav" data-screen="dashboard" style="cursor:pointer">
-    <div class="logo-mark">ЦУ</div>
-    <div>
-      <div class="logo-title">Программа трансляционных исследований</div>
-      <div class="logo-sub">Учёт заявок · 2-я волна · Центральный университет</div>
+<div id="shell">
+  <aside id="sidebar">
+    <div class="brand" data-act="nav" data-screen="dashboard" title="На дашборд">
+      <div class="brand-mark">ТИ</div>
+      <div class="brand-text">
+        <div class="brand-title">Трансляционные исследования</div>
+        <div class="brand-sub">Заявки · 2-я волна</div>
+      </div>
     </div>
-  </div>
-  <nav id="topnav"></nav>
-  <div id="topbar-right">
-    <span id="demoBadge" class="badge flag-demo" style="display:none">ДЕМО-данные</span>
-    <button class="btn sm" id="projBtn" title="Режим проектора (крупный шрифт)">🖥 Проектор</button>
+    <nav id="sidenav" aria-label="Основная навигация"></nav>
+    <div class="side-foot">
+      <span id="demoBadge" class="badge flag-demo" style="display:none">ДЕМО-данные</span>
+      <span class="side-note">Данные хранятся локально в браузере</span>
+    </div>
+  </aside>
+  <div id="main">
+    <header id="topbar">
+      <div class="crumbs" id="crumbs">Дашборд</div>
+      <div id="topbar-right">
+        <button class="btn sm ghost" id="projBtn" title="Режим проектора (крупный шрифт)">🖥 Проектор</button>
+      </div>
+    </header>
+    <main id="app">
+      <div id="screen-dashboard" class="screen"></div>
+      <div id="screen-list" class="screen"></div>
+      <div id="screen-card" class="screen"></div>
+      <div id="screen-map" class="screen"></div>
+      <div id="screen-present" class="screen"></div>
+      <div id="screen-import" class="screen"></div>
+      <div id="screen-refs" class="screen"></div>
+    </main>
+    <footer class="app-foot">Программа трансляционных исследований ЦУ · локальная система учёта · данные не покидают браузер</footer>
   </div>
 </div>
-<div id="app">
-  <div id="screen-dashboard" class="screen"></div>
-  <div id="screen-list" class="screen"></div>
-  <div id="screen-card" class="screen"></div>
-  <div id="screen-map" class="screen"></div>
-  <div id="screen-present" class="screen"></div>
-  <div id="screen-import" class="screen"></div>
-  <div id="screen-refs" class="screen"></div>
-</div>
-<footer>Программа трансляционных исследований ЦУ · локальная система учёта · данные не покидают браузер</footer>
 <div id="modalRoot" class="modal-bg"><div class="modal" id="modalBox"></div></div>
 <div id="toast" class="toast"></div>
 
