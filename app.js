@@ -202,30 +202,50 @@ function manualReason(p){
   if(n) return 'Направление по карте неочевидно («'+(p.formDir&&p.formDir.v||'')+'»)';
   return 'Нет соответствия в таблице соответствий';
 }
-/* Корпорация выводится из Карты направлений по направлению анкеты (Битрикс).
-   Совпадение по справочнику directionMap; если не нашлось —
-   берём вручную заполненное поле corp; иначе пусто. */
-function deriveCorp(p){
-  var fd=slug(p.formDir&&p.formDir.v);
-  if(fd){
-    /* точное совпадение с направлением карты */
-    var hit=CONFIG.directionMap.find(function(m){ return slug(m.dir)===fd; });
-    if(hit&&hit.corp){
-      var names=hit.corp.split(',').map(function(x){return x.trim();}).filter(Boolean);
-      return names.length===1? names[0] : hit.corp;
-    }
-    /* соответствие «анкета → карта» из genFormToMap */
-    var gm=CONFIG.genFormToMap.find(function(g){ return slug(g.form)===fd; });
-    if(gm){
-      var hit2=CONFIG.directionMap.find(function(m){ return slug(m.dir)===slug(gm.map); });
-      if(hit2&&hit2.corp){
-        var names2=hit2.corp.split(',').map(function(x){return x.trim();}).filter(Boolean);
-        return names2.length===1? names2[0] : hit2.corp;
-      }
-    }
+/* Приведение направления из выгрузки к справочнику отбора:
+   точное совпадение → через genFormToMap → ключевые слова → "Другое". */
+function normDirection(raw){
+  var fd=slug(raw);
+  if(!fd) return '';
+  var exact=CONFIG.directions.find(function(d){ return slug(d)===fd; });
+  if(exact) return exact;
+  var g=CONFIG.genFormToMap.find(function(x){ return slug(x.form)===fd; });
+  if(g) return g.map;
+  var keys=[
+    ['робот','медицин','биомед','клеточн','регенератив','здоровь','сотрудник','образовател','педагог','курс'],
+    ['полимер','материал'],
+    ['производственн','сталеплав','трубн','mes','металлург'],
+    ['сырь','побочн','переработ'],
+    ['технологическ','нпз','октанов','бензин'],
+    ['ритейл','полк','магазин','торговл','ценник'],
+    ['научн','статей','формул','патент','публикац'],
+    ['обогащен','извлечен','алмаз','минерал']
+  ];
+  var di=[1,5,2,3,6,4,7,0];
+  var hay=fd;
+  for(var i=0;i<keys.length;i++){
+    if(keys[i].some(function(k){ return hay.indexOf(k)>=0; })) return CONFIG.directions[di[i]];
   }
-  return (p.corp&&p.corp.v)||'';
+  return 'Другое';
 }
+/* Корпорации выводятся из Карты направлений по направлению анкеты.
+   deriveCorps — массив (ТМК и НЛМК раздельно), deriveCorp — строка для отображения. */
+function deriveCorps(p){
+  var dir=normDirection(p.formDir&&p.formDir.v);
+  var out=[];
+  if(dir){
+    CONFIG.directionMap.forEach(function(m){
+      if(slug(m.dir)===slug(dir)){
+        m.corp.split(',').forEach(function(x){ x=x.trim(); if(x && out.indexOf(x)<0) out.push(x); });
+      }
+    });
+  }
+  if(!out.length && p.corp&&p.corp.v){
+    String(p.corp.v).split(',').forEach(function(x){ x=x.trim(); if(x && out.indexOf(x)<0) out.push(x); });
+  }
+  return out;
+}
+function deriveCorp(p){ return deriveCorps(p).join(', '); }
 function proposeWave1(proj, wave1projects){
   var out=[], em=slug(proj.leaderEmail&&proj.leaderEmail.v), nm=slug(proj.name&&proj.name.v);
   if(!em && !nm) return out;
@@ -238,7 +258,6 @@ function proposeWave1(proj, wave1projects){
   out.sort(function(a,b){return b.score-a.score;});
   return out.slice(0,3);
 }
-
 /* ---------- ЧИПЫ И ПЛАШКИ ---------- */
 function statusChip(id){
   var map={reg:'st-reg',applied:'st-app',formfilled:'st-form',check:'st-check',expert:'st-expert',invited:'st-invite',presented:'st-presented',ok:'st-ok',no:'st-no',withdrawn:'st-withdrawn'};
@@ -371,8 +390,9 @@ function renderDashboard(){
   ps.forEach(function(p){
     var d=(p.formDir&&p.formDir.v)||'(не указано)';
     dirCount[d]=(dirCount[d]||0)+1;
-    var c=deriveCorp(p)||'(не указано)';
-    corpCount[c]=(corpCount[c]||0)+1;
+    var corps=deriveCorps(p);
+    if(!corps.length) corps=['(не указано)'];
+    corps.forEach(function(c){ corpCount[c]=(corpCount[c]||0)+1; });
     var s=statusOf(p); stCount[s]=(stCount[s]||0)+1;
     var r=(p.relevance&&p.relevance.v)||'none'; relCount[r]=(relCount[r]||0)+1;
     var t=num(p.trlTarget&&p.trlTarget.v); if(t!=null) trlCount[t]=(trlCount[t]||0)+1;
@@ -432,7 +452,6 @@ function renderDashboard(){
       statCard(dd!=null&&dd>=0?dd:0,'Дней до конца приёма ('+fmtDate(CONFIG.app.deadlineSubmit)+')')+
       statCard(violCount,'Не соответствуют формальным требованиям','viol','1')+
       statCard(noRel,'Без оценки релевантности','norel','1')+
-      statCard(wave1n,'Участников 1-й волны','wave1','1','гипотезы и подтверждённые')+
     '</div>'+
     '<div class="dash-grid">'+
       '<div class="card"><h3>Направления отбора</h3>'+
@@ -488,7 +507,7 @@ function applyFilters(ps){
       var hay=(nameOf(p)+' '+slug(p.annotation&&p.annotation.v)+' '+slug(p.leaderName&&p.leaderName.v)+' '+slug(p.org&&p.org.v)).toLowerCase();
       if(hay.indexOf(s)<0) return false;
     }
-    if(f.dir){ var d=(p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'(не указано)'; if(d!==f.dir) return false; }
+    if(f.dir){ var d=normDirection(p.formDir&&p.formDir.v)||'(не указано)'; if(d!==f.dir) return false; }
     if(f.corp){ if(deriveCorps(p).indexOf(f.corp)<0) return false; }
     if(f.status){ if(statusOf(p)!==f.status) return false; }
     if(f.relevance){ if(!(p.relevance&&p.relevance.v===f.relevance)) return false; }
