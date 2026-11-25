@@ -288,3 +288,23 @@ body.projector .stat .lab{font-size:14px}
   .searchbox{flex-direction:column;align-items:stretch}
   .card-head{flex-direction:column}
 }
+
+/* Кнопки выбора темы в сайдбаре */
+.theme-row{display:flex;gap:6px;margin-bottom:8px}
+.theme-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--border-strong);background:#fff;color:var(--muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0}
+.theme-btn.cu{background:#B5562F;border-color:#B5562F;color:#fff}
+.theme-btn.on{outline:2px solid var(--primary);outline-offset:1px}
+
+/* ---------- Темы оформления ---------- */
+/* Фирменная палитра ЦУ (исходная из ТЗ). Переключение: кнопка в сайдбаре,
+   выбор хранится в localStorage (ключ transresearch_wave2_ui_v1 → theme). */
+html[data-theme=cu]{
+  --bg:#FAF6F0; --card:#FFFFFF; --sunk:#F4EDE4;
+  --border:#E8DED3; --border-strong:#D9CBB9;
+  --text:#3A2E28; --text-2:#5C4C40; --muted:#8C7B70; --faint:#B4A497;
+  --primary:#B5562F; --primary-h:#9E4A27; --primary-soft:#F7E8DE;
+  --accent:#B45309; --accent-soft:#FCF1E3;
+  --st-1:#F7E8DE;  --st-1t:#9E4A27;
+  --st-2:#F5EDE2;  --st-2t:#8A5A2B;
+}
+html[data-theme=cu] .brand-mark{background:var(--primary)}

@@ -133,7 +133,7 @@ var App = {
   wave1:[]
 };
 function loadUi(){
-  var def={ search:'', filters:{}, sort:{key:'id',dir:1}, cols:LIST_COLS.map(function(c){return c.key;}) };
+  var def={ search:'', filters:{}, sort:{key:'id',dir:1}, cols:LIST_COLS.map(function(c){return c.key;}), theme:'std' };
   try{
     var raw=localStorage.getItem(UI_KEY);
     if(!raw) return def;
@@ -142,7 +142,8 @@ function loadUi(){
       search:u.search||'',
       filters:u.filters||{},
       sort:(u.sort&&u.sort.key)? u.sort : def.sort,
-      cols:(Array.isArray(u.cols)&&u.cols.length)? u.cols : def.cols
+      cols:(Array.isArray(u.cols)&&u.cols.length)? u.cols : def.cols,
+      theme:u.theme||'std'
     };
   }catch(e){ return def; }
 }
@@ -178,7 +179,7 @@ function checkRules(p){
   if(t!=null && t>R.termMonthsMax) w.push({type:'term', title:'Срок превышает '+R.termMonthsMax+' мес.', body:'Срок '+t+' мес. › '+R.termMonthsMax+' мес.', level:'warn'});
   if(b>0 && f!=null && f/b>R.fotShareMax) w.push({type:'fot', title:'ФОТ превышает 60 % бюджета', body:'ФОТ '+fmtMoney(f)+' = '+fmtNum((f/b*100).toFixed(1))+' % бюджета › 60 %. Допустимый max ФОТ '+fmtMoney(Math.floor(b*R.fotShareMax))+'.', level:'warn'});
   if(f>0 && o!=null && o/f>R.overheadFotShareMax) w.push({type:'overhead', title:'Накладные превышают 10 % от ФОТ', body:'Накладные '+fmtMoney(o)+' = '+fmtNum((o/f*100).toFixed(1))+' % от ФОТ '+fmtMoney(f)+' › 10 %. Допустимый max '+fmtMoney(Math.floor(f*R.overheadFotShareMax))+'.', level:'warn'});
-  if(tt!=null && (tt<R.trlTargetMin || tt>R.trlTargetMax)) w.push({type:'trl', title:'Целевой TRL вне диапазона 2–3', body:'Целевой TRL = '+tt+' (ожидается '+R.trlTargetMin+'–'+R.trlTargetMax+').', level:'warn'});
+  if(tt!=null && (tt<R.trlTargetMin || tt>R.trlTargetMax)) w.push({type:'trl', title:'TRL вне диапазона 2–3', body:'Целевой TRL = '+tt+' (ожидается '+R.trlTargetMin+'–'+R.trlTargetMax+').', level:'warn'});
   if(p.nextDue&&p.nextDue.v && !(statusOf(p)==='ok'||statusOf(p)==='no'||statusOf(p)==='withdrawn')){
     var dd=daysUntil(p.nextDue.v);
     if(dd!=null && dd<0) w.push({type:'overdue', title:'Следующий шаг просрочен', body:'Срок шага '+fmtDate(p.nextDue.v)+' ('+Math.abs(dd)+' дн. назад).', level:'danger'});
@@ -344,9 +345,9 @@ function renderDashboard(){
 
   var dirCount={}, corpCount={}, stCount={}, relCount={}, trlCount={};
   ps.forEach(function(p){
-    var d=(p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'(не указано)';
+    var d=(p.formDir&&p.formDir.v)||'(не указано)';
     dirCount[d]=(dirCount[d]||0)+1;
-    var c=(p.corp&&p.corp.v)||'(не указано)';
+    var c=deriveCorp(p)||'(не указано)';
     corpCount[c]=(corpCount[c]||0)+1;
     var s=statusOf(p); stCount[s]=(stCount[s]||0)+1;
     var r=(p.relevance&&p.relevance.v)||'none'; relCount[r]=(relCount[r]||0)+1;
@@ -358,9 +359,8 @@ function renderDashboard(){
   var maxC=Math.max.apply(null,corpArr.map(function(c){return corpCount[c];}).concat([1]));
   var maxSt=Math.max.apply(null,CONFIG.statuses.map(function(s){return stCount[s.id]||0;}).concat([1]));
 
-  var manual=0, wave1n=0, noRel=0, violIds={};
+  var wave1n=0, noRel=0, violIds={};
   ps.forEach(function(p){
-    if(needsManual(p)) manual++;
     if(p.wave1&&p.wave1.partic) wave1n++;
     if(!(p.relevance&&p.relevance.v&&p.relevance.v!=='none')) noRel++;
     checkRules(p).forEach(function(){ violIds[p.id]=1; });
@@ -396,16 +396,16 @@ function renderDashboard(){
       '<button class="btn primary" data-act="nav" data-screen="import">⇅ Импорт CSV</button>'+
     '</div></div>'+
     '<div class="grid g-stats">'+
-      statCard(ps.filter(function(p){return deriveStatus(p)==='reg';}).length,'Регистраций')+
+      statCard(ps.length,'Всего заявок','','','регистрации + поданные анкеты')+
+      statCard(ps.filter(function(p){return deriveStatus(p)==='reg';}).length,'Регистраций','','','без заполненной анкеты')+
       statCard(ps.filter(function(p){return deriveStatus(p)==='applied';}).length,'Поданных заявок')+
       statCard(dd!=null&&dd>=0?dd:0,'Дней до конца приёма ('+fmtDate(CONFIG.app.deadlineSubmit)+')')+
-      statCard(manual,'Требуют ручного сопоставления','manual','1','направление')+
-      statCard(violCount,'Проектов с нарушениями','viol','1')+
+      statCard(violCount,'Не соответствуют формальным требованиям','viol','1')+
       statCard(noRel,'Без оценки релевантности','norel','1')+
       statCard(wave1n,'Участников 1-й волны','wave1','1','гипотезы и подтверждённые')+
     '</div>'+
     '<div class="dash-grid">'+
-      '<div class="card"><h3>Заявки по направлениям</h3>'+
+      '<div class="card"><h3>Направления отбора</h3>'+
         (dirArr.length? dirArr.map(function(d){ return '<div class="bar-row" data-act="go-list" data-fk="dir" data-fv="'+esc(d)+'"><span class="bar-lab" title="'+esc(d)+'">'+esc(d)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(dirCount[d]/maxD*100)+'%"></div></div><span class="bar-val">'+dirCount[d]+'</span></div>'; }).join('') : '<div class="empty">Нет данных</div>')+
       '</div>'+
       '<div class="card"><h3>Заявки по корпорациям</h3>'+
@@ -420,7 +420,7 @@ function renderDashboard(){
       '<div class="card"><h3>Релевантность</h3>'+
         CONFIG.relevance.map(function(r){ var n=relCount[r.id]||0; return '<div class="bar-row" data-act="go-list" data-fk="relevance" data-fv="'+r.id+'"><span class="bar-lab">'+esc(r.label)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(ps.length?Math.round(n/ps.length*100):0)+'%"></div></div><span class="bar-val">'+n+'</span></div>'; }).join('')+
       '</div>'+
-      '<div class="card"><h3>Целевой TRL</h3>'+
+      '<div class="card"><h3>TRL</h3>'+
         (Object.keys(trlCount).length? Object.keys(trlCount).sort().map(function(t){ return '<div class="bar-row" style="cursor:default"><span class="bar-lab" style="color:'+trlColor(Number(t))+'">TRL '+t+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(ps.length?Math.round(trlCount[t]/ps.length*100):0)+'%;background:'+trlColor(Number(t))+'"></div></div><span class="bar-val">'+trlCount[t]+'</span></div>'; }).join('') : '<div class="empty">Нет данных</div>')+
       '</div>'+
       '<div class="card full"><h3>Динамика подачи заявок (по дате создания)</h3>'+
@@ -459,7 +459,7 @@ function applyFilters(ps){
       if(hay.indexOf(s)<0) return false;
     }
     if(f.dir){ var d=(p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'(не указано)'; if(d!==f.dir) return false; }
-    if(f.corp){ if((p.corp&&p.corp.v)!==f.corp) return false; }
+    if(f.corp){ if(deriveCorp(p)!==f.corp) return false; }
     if(f.status){ if(statusOf(p)!==f.status) return false; }
     if(f.relevance){ if(!(p.relevance&&p.relevance.v===f.relevance)) return false; }
     if(f.manual){ if(!needsManual(p)) return false; }
@@ -478,7 +478,7 @@ function cellVal(p,key){
     case 'leaderName': return (p.leaderName&&p.leaderName.v)||'';
     case 'org': return (p.org&&p.org.v)||'';
     case 'dir': return (p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'';
-    case 'corp': return (p.corp&&p.corp.v)||'';
+    case 'corp': return deriveCorp(p);
     case 'status': return statusOf(p);
     case 'relevance': return (p.relevance&&p.relevance.v)||'none';
     case 'budget': return num(p.budget&&p.budget.v);
@@ -569,7 +569,7 @@ function updateListResults(){
       (visible.indexOf('leaderName')>=0?'<td>'+esc(p.leaderName&&p.leaderName.v)+'</td>':'')+
       (visible.indexOf('org')>=0?'<td>'+esc(p.org&&p.org.v)+orgChip(p.org&&p.org.v)+'</td>':'')+
       (visible.indexOf('dir')>=0?'<td>'+esc((p.formDir&&p.formDir.v)||(p.mapDir&&p.mapDir.v)||'')+'</td>':'')+
-      (visible.indexOf('corp')>=0?'<td>'+esc(p.corp&&p.corp.v)+prioChip(p.corp&&p.corp.v)+'</td>':'')+
+      (visible.indexOf('corp')>=0?'<td>'+esc(deriveCorp(p))+prioChip(deriveCorp(p))+'</td>':'')+
       (visible.indexOf('status')>=0?'<td>'+statusChip(statusOf(p))+'</td>':'')+
       (visible.indexOf('relevance')>=0?'<td>'+relChip(p.relevance&&p.relevance.v)+'</td>':'')+
       (visible.indexOf('budget')>=0?'<td style="text-align:right">'+(num(p.budget&&p.budget.v)!=null?fmtNum(p.budget.v):'—')+'</td>':'')+
@@ -664,6 +664,7 @@ function renderCardBody(){
     '</div>'+
     '<div class="no-print" style="display:flex;gap:6px">'+
       '<button class="btn" data-act="print">🖨 Печать</button>'+
+      '<button class="btn" data-act="export-pdf" data-id="'+esc(String(p.id))+'" title="PDF анкеты без ФИО, почты и телефона — для внешних экспертов">⬇ Анкета (PDF, без ПД)</button>'+
       '<button class="btn danger" data-act="proj-del" data-id="'+esc(String(p.id))+'">Удалить</button>'+
     '</div></div>'+
     '<div class="zone-switch">'+
@@ -729,8 +730,8 @@ function renderTabOverview(p,pane){
       metaItem('Ответственный',esc(p.responsible&&p.responsible.v||'—'))+
       metaItem('Срок следующего шага',fmtDate(p.nextDue&&p.nextDue.v))+
       metaItem('Направление (анкета)',esc(p.formDir&&p.formDir.v||'—'))+
-      metaItem('Корпорация',esc(p.corp&&p.corp.v||'—')+prioChip(p.corp&&p.corp.v))+
-      metaItem('TRL целевой',trlChip(p.trlTarget&&p.trlTarget.v))+
+      metaItem('Корпорация',esc(deriveCorp(p)||'—')+prioChip(deriveCorp(p)))+
+      metaItem('TRL',trlChip(p.trlTarget&&p.trlTarget.v))+
       metaItem('Бюджет',fmtMoney(p.budget&&p.budget.v))+
       metaItem('ФОТ',fmtMoney(p.fot&&p.fot.v))+
       metaItem('Накладные',fmtMoney(p.overhead&&p.overhead.v))+
@@ -762,7 +763,7 @@ function renderTabForm(p,pane){
           ? '<textarea style="width:100%" data-f="'+r[0]+'">'+esc(v)+'</textarea>'
           : '<input style="width:100%" value="'+esc(v)+'" data-f="'+r[0]+'">')+srcTag(p[r[0]])+'</td></tr>';
       }).join('')+
-      '<tr><td>Целевой TRL</td><td>'+trlChip(p.trlTarget&&p.trlTarget.v)+' <span class="muted">· изменяется во вкладке «Бюджет и правила»</span></td></tr>'+
+      '<tr><td>TRL</td><td>'+trlChip(p.trlTarget&&p.trlTarget.v)+' <span class="muted">· изменяется во вкладке «Бюджет и правила»</span></td></tr>'+
       '<tr><td>Дата подачи анкеты</td><td>'+(p.submittedDate&&p.submittedDate.v?esc(p.submittedDate.v):'<span class="muted">нет данных</span>')+' <span class="src b">Битрикс</span></td></tr>'+
     '</table>'+
     '<h3>Прочие поля анкеты (нераспознанные столбцы из CSV)</h3>'+
@@ -771,7 +772,7 @@ function renderTabForm(p,pane){
       : '<div class="empty" style="padding:20px">Нет данных</div>');
 }
 function renderTabBudget(p,pane){
-  var fields=[['budget','Бюджет, ₽'],['fot','ФОТ, ₽'],['overhead','Накладные, ₽'],['termMonths','Срок, мес.'],['trlCur','TRL текущий'],['trlTarget','TRL целевой']];
+  var fields=[['budget','Бюджет, ₽'],['fot','ФОТ, ₽'],['overhead','Накладные, ₽'],['termMonths','Срок, мес.'],['trlCur','TRL текущий'],['trlTarget','TRL']];
   var d=calcDerived(p);
   pane.innerHTML=
     renderWarnings(p)+
@@ -1490,8 +1491,8 @@ function projectToXlsxRow(p){
     'Руководитель':(p.leaderName&&p.leaderName.v)||'','Email':(p.leaderEmail&&p.leaderEmail.v)||'','Телефон':(p.leaderPhone&&p.leaderPhone.v)||'',
     'Организация':(p.org&&p.org.v)||'','Команда':(p.team&&p.team.v)||'',
     'Направление (анкета)':(p.formDir&&p.formDir.v)||'','Направление (по карте)':(p.mapDir&&p.mapDir.v)||'',
-    'Корпорация':(p.corp&&p.corp.v)||'','Запрос':(p.request&&p.request.v)||'',
-    'TRL текущий':(p.trlCur&&p.trlCur.v)||'','TRL целевой':(p.trlTarget&&p.trlTarget.v)||'',
+    'Корпорация':deriveCorp(p),'Запрос':(p.request&&p.request.v)||'',
+    'TRL текущий':(p.trlCur&&p.trlCur.v)||'','TRL':(p.trlTarget&&p.trlTarget.v)||'',
     'Бюджет':p.budget&&p.budget.v,'ФОТ':p.fot&&p.fot.v,'Накладные':p.overhead&&p.overhead.v,'Срок (мес)':p.termMonths&&p.termMonths.v,
     'Статус':stLabel(statusOf(p)),'Релевантность':rlLabel(p.relevance&&p.relevance.v),'Оценка экспертов':(p.expertScore&&p.expertScore.v)||'',
     'Следующий шаг':(p.nextStep&&p.nextStep.v)||'','Ответственный':(p.responsible&&p.responsible.v)||'',
@@ -1524,6 +1525,46 @@ function buildSnapshotHtml(hideContacts){
   '<table><thead><tr><th>ID</th><th>Название</th><th>Направление</th><th>Корпорация</th><th>Руководитель</th><th>Статус</th><th>Релевантность</th><th>Бюджет</th></tr></thead><tbody>'+rows+'</tbody></table>'+
   '</body></html>';
 }
+/* ---- Анкета в PDF без персональных данных (для внешних экспертов) ---- */
+function exportProjectPdf(id){
+  var p=findProj(id); if(!p){ toast('Заявка не найдена','err'); return; }
+  var d=calcDerived(p);
+  function row(k,v){ return '<tr><td class="k">'+k+'</td><td>'+v+'</td></tr>'; }
+  function sec(t){ return '<h2>'+t+'</h2>'; }
+  var results='', i;
+  var rr=[];
+  for(i=1;i<=4;i++){ var r=p['result'+i]&&p['result'+i].v, dt=p['resultDate'+i]&&p['resultDate'+i].v, tg=p['resultTarget'+i]&&p['resultTarget'+i].v; if(r||dt||tg) rr.push([r||'—',dt||'—',tg||'—']); }
+  if(rr.length) results=sec('Ожидаемые результаты')+'<table><thead><tr><th>Результат</th><th>Дата</th><th>Целевые характеристики</th></tr></thead><tbody>'+rr.map(function(x){return '<tr><td>'+esc(x[0])+'</td><td>'+esc(x[1])+'</td><td>'+esc(x[2])+'</td></tr>';}).join('')+'</tbody></table>';
+  var extra=Object.keys(p.extra||{});
+  var extraHtml=extra.length? sec('Прочие поля анкеты')+'<table class="kv">'+extra.map(function(k){ return row(esc(k),esc(p.extra[k].v||'')); }).join('')+'</table>':'';
+  var html='<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Анкета '+esc(nameOf(p))+'</title>'+
+  '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:28px;color:#1B2430;font-size:13px;line-height:1.5}'+
+  'h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #E3E5EA;padding-bottom:4px}'+
+  'table{border-collapse:collapse;width:100%}td,th{border:1px solid #D4D7DE;padding:5px 8px;text-align:left;vertical-align:top}th{background:#F1F2F5}'+
+  '.k{color:#55606E;width:34%;background:#FAFBFC}.note{background:#F1F2F5;border-radius:6px;padding:8px 12px;color:#55606E;margin:10px 0 16px;font-size:12px}.an{white-space:pre-wrap}</style></head><body>'+
+  '<h1>'+esc(nameOf(p))+'</h1>'+
+  '<div class="note"><b>Анкета проекта — 2-я волна Программы трансляционных исследований ЦУ.</b> Документ для внешних экспертов: персональные данные (ФИО, почта, телефон) удалены. ID заявки: '+esc(p.id||'—')+' · сформировано '+fmtDate(today())+'</div>'+
+  '<table class="kv">'+
+    row('Направление отбора (анкета)',esc(p.formDir&&p.formDir.v||'—'))+
+    row('Корпорация',esc(deriveCorp(p)||'—'))+
+    row('Индустрия',esc(p.industry&&p.industry.v||'—'))+
+    row('TRL (текущий / целевой)',esc(p.trlCur&&p.trlCur.v!=null?p.trlCur.v:'—')+' / '+esc(p.trlTarget&&p.trlTarget.v!=null?p.trlTarget.v:'—'))+
+    row('Бюджет',fmtMoney(p.budget&&p.budget.v))+
+    row('ФОТ',fmtMoney(p.fot&&p.fot.v))+
+    row('Накладные',fmtMoney(p.overhead&&p.overhead.v))+
+    row('Срок, мес.',esc(p.termMonths&&p.termMonths.v!=null?p.termMonths.v:'—'))+
+    row('Доля ФОТ от бюджета',d.fotShare!=null?fmtNum((d.fotShare*100).toFixed(1))+' %':'—')+
+  '</table>'+
+  sec('Аннотация')+'<div class="an">'+esc(p.annotation&&p.annotation.v||'Нет данных')+'</div>'+
+  results+extraHtml+
+  '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){ toast('Разрешите всплывающие окна для выгрузки PDF','err'); return; }
+  w.document.write(html); w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); },300);
+}
+
 /* ---- Демо-данные ---- */
 function addDemoData(){
   var base=makeDemoProjects();
@@ -1624,6 +1665,8 @@ function renderRefs(){
 
 /* ---- Глобальные обработчики (делегирование событий) ---- */
 function onClick(e){
+  var ts=e.target.closest('[data-theme-set]');
+  if(ts){ setTheme(ts.dataset.themeSet); return; }
   var el=e.target.closest('[data-act]');
   if(!el){
     if(e.target&&e.target.id==='modalRoot') closeModal();
@@ -1681,6 +1724,7 @@ function onClick(e){
     case 'proj-del': deleteProject(el.dataset.id); break;
     case 'undo-restore': undoRestore(el.dataset.id); break;
     case 'print': window.print(); break;
+    case 'export-pdf': exportProjectPdf(el.dataset.id); break;
     case 'slot-clear': clearSlot(el.dataset.day); break;
     case 'auto-slot': autoSlot(); break;
     case 'contact-add': addContact(); break;
@@ -1725,6 +1769,17 @@ function onKeydown(e){
   }
 }
 
+/* ---- Тема оформления ---- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t==='cu'?'cu':'std');
+  document.querySelectorAll('.theme-btn').forEach(function(b){ b.classList.toggle('on', b.dataset.themeSet===(t==='cu'?'cu':'std')); });
+}
+function setTheme(t){
+  App.ui.theme=(t==='cu'?'cu':'std');
+  persistUi();
+  applyTheme(App.ui.theme);
+}
+
 /* ---- Инициализация ---- */
 function syncDemoBadge(){
   var demo=store.projects.some(function(p){ return p.demo; });
@@ -1736,6 +1791,7 @@ function boot(){
   modalBox=document.getElementById('modalBox');
   toastEl=document.getElementById('toast');
   App.ui=loadUi();
+  applyTheme(App.ui.theme);
   buildNav();
   document.getElementById('projBtn').addEventListener('click',function(){
     document.body.classList.toggle('projector');
