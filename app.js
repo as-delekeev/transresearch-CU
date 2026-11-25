@@ -208,10 +208,20 @@ function manualReason(p){
 function deriveCorp(p){
   var fd=slug(p.formDir&&p.formDir.v);
   if(fd){
+    /* точное совпадение с направлением карты */
     var hit=CONFIG.directionMap.find(function(m){ return slug(m.dir)===fd; });
-    if(hit){
-      var names=hit.corp.split(',').map(function(x){return x.trim();});
+    if(hit&&hit.corp){
+      var names=hit.corp.split(',').map(function(x){return x.trim();}).filter(Boolean);
       return names.length===1? names[0] : hit.corp;
+    }
+    /* соответствие «анкета → карта» из genFormToMap */
+    var gm=CONFIG.genFormToMap.find(function(g){ return slug(g.form)===fd; });
+    if(gm){
+      var hit2=CONFIG.directionMap.find(function(m){ return slug(m.dir)===slug(gm.map); });
+      if(hit2&&hit2.corp){
+        var names2=hit2.corp.split(',').map(function(x){return x.trim();}).filter(Boolean);
+        return names2.length===1? names2[0] : hit2.corp;
+      }
     }
   }
   return (p.corp&&p.corp.v)||'';
@@ -367,7 +377,13 @@ function renderDashboard(){
     var r=(p.relevance&&p.relevance.v)||'none'; relCount[r]=(relCount[r]||0)+1;
     var t=num(p.trlTarget&&p.trlTarget.v); if(t!=null) trlCount[t]=(trlCount[t]||0)+1;
   });
-  var dirArr=Object.keys(dirCount).sort(function(a,b){return dirCount[b]-dirCount[a];});
+  var dirOrder=CONFIG.directions.concat([]);
+  var dirArr=Object.keys(dirCount).sort(function(a,b){
+    var ia=dirOrder.indexOf(a), ib=dirOrder.indexOf(b);
+    if(ia<0) ia=999; if(ib<0) ib=999;
+    if(ia!==ib) return ia-ib;
+    return dirCount[b]-dirCount[a]||a.localeCompare(b,'ru');
+  });
   var maxD=Math.max.apply(null,dirArr.map(function(d){return dirCount[d];}).concat([1]));
   var corpArr=Object.keys(corpCount).sort(function(a,b){return corpCount[b]-corpCount[a]||a.localeCompare(b,'ru');});
   var maxC=Math.max.apply(null,corpArr.map(function(c){return corpCount[c];}).concat([1]));
